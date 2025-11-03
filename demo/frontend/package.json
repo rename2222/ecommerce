@@ -1,0 +1,13 @@
+{
+  "name": "ecommerce-frontend",
+  "version": "1.0.0",
+  "description": "E-commerce frontend for Spring Boot backend",
+  "scripts": {
+    "start": "serve -s . -p 3000",
+    "dev": "live-server --port=3000"
+  },
+  "devDependencies": {
+    "serve": "^14.0.0",
+    "live-server": "^1.2.2"
+  }
+}
