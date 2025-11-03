@@ -14,6 +14,7 @@ public class Product {
     private int price ;
     private int  quantity;
     private String  category;
+    private String review;
     @Data
     public static class CategoryInfo{
         private String id ;
