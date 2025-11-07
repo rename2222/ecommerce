@@ -1,112 +1,109 @@
-// API Configuration - Frontend: 3000, Backend: 8080
+// API Configuration
 const API_BASE_URL = 'http://localhost:8080';
-const PRODUCTS_API = `${API_BASE_URL}/product`;
+const PRODUCTS_API = `${API_BASE_URL}/api/products`;
+const TEST_API = `${API_BASE_URL}/api/test`;
 
 // Global variables
-let allProducts = [];
+window.allProducts = [];
 
-// Initialize when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Frontend initialized - Port 3000');
-    console.log('Backend API:', PRODUCTS_API);
-    
-    if (window.location.pathname.endsWith('index.html') || 
-        window.location.pathname === '/') {
-        loadProductsCount();
-        checkBackendConnection();
+// Utility Functions
+function showLoading(show) {
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    if (loadingSpinner) {
+        loadingSpinner.style.display = show ? 'block' : 'none';
     }
-    
-    if (window.location.pathname.endsWith('products.html')) {
-        loadProducts();
-        setupEventListeners();
-        checkBackendConnection();
-    }
-    
-    if (window.location.pathname.endsWith('add-product.html')) {
-        setupAddProductForm();
-        checkBackendConnection();
-    }
-});
+}
 
-// Check backend connection
-async function checkBackendConnection() {
+function showSuccess(message) {
+    hideMessages();
+    const successMessage = document.getElementById('successMessage');
+    const successText = document.getElementById('successText');
+    if (successMessage && successText) {
+        successText.textContent = message;
+        successMessage.style.display = 'block';
+
+        // Auto hide after 5 seconds
+        setTimeout(() => {
+            successMessage.style.display = 'none';
+        }, 5000);
+    }
+}
+
+function showError(message) {
+    hideMessages();
+    const errorMessage = document.getElementById('errorMessage');
+    const errorText = document.getElementById('errorText');
+    if (errorMessage && errorText) {
+        errorText.textContent = message;
+        errorMessage.style.display = 'block';
+    }
+}
+
+function hideMessages() {
+    const successMessage = document.getElementById('successMessage');
+    const errorMessage = document.getElementById('errorMessage');
+    if (successMessage) successMessage.style.display = 'none';
+    if (errorMessage) errorMessage.style.display = 'none';
+}
+
+function escapeHtml(unsafe) {
+    if (!unsafe) return '';
+    return unsafe.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// Backend Connection
+async function testBackendConnection() {
+    const statusElement = document.getElementById('connectionStatus');
+    const statusText = document.getElementById('statusText');
+
+    if (!statusElement || !statusText) return;
+
     try {
-        const response = await fetch(PRODUCTS_API, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-        
-        const statusElement = document.getElementById('connectionStatus');
-        const statusText = document.getElementById('statusText');
-        
-        if (statusElement && statusText) {
-            if (response.ok) {
-                statusText.textContent = 'Connected successfully ✓';
-                statusElement.className = 'alert alert-success';
-            } else {
-                statusText.textContent = `Connection issue: ${response.status}`;
-                statusElement.className = 'alert alert-warning';
-            }
-            statusElement.style.display = 'block';
-        }
+        statusText.textContent = 'Testing backend connection...';
+        statusElement.className = 'alert alert-info';
+
+        const response = await fetch(`${TEST_API}/hello`);
+        const result = await response.text();
+
+        statusText.textContent = `✅ Backend Connected: ${result}`;
+        statusElement.className = 'alert alert-success';
+
+        console.log('Backend connection successful:', result);
     } catch (error) {
-        const statusElement = document.getElementById('connectionStatus');
-        const statusText = document.getElementById('statusText');
-        
-        if (statusElement && statusText) {
-            statusText.textContent = 'Cannot connect to backend. Make sure Spring Boot is running on port 8080';
-            statusElement.className = 'alert alert-danger';
-            statusElement.style.display = 'block';
-        }
+        statusText.textContent = '❌ Cannot connect to backend. Make sure Spring Boot is running on port 8080';
+        statusElement.className = 'alert alert-danger';
         console.error('Backend connection failed:', error);
     }
 }
 
-// Event Listeners
-function setupEventListeners() {
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', debounce(searchProducts, 300));
-    }
-}
-
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-// Product API Functions
+// Product Functions
 async function loadProducts() {
     showLoading(true);
     hideMessages();
 
     try {
-        const response = await fetch(PRODUCTS_API, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
+        console.log('Loading products from:', `${PRODUCTS_API}/public/all`);
+
+        const response = await fetch(`${PRODUCTS_API}/public/all`);
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        allProducts = await response.json();
-        displayProducts(allProducts);
-        
+        window.allProducts = await response.json();
+        console.log('Loaded products:', window.allProducts);
+
+        displayProducts(window.allProducts);
+        showSuccess(`Loaded ${window.allProducts.length} products successfully!`);
+
     } catch (error) {
         console.error('Error loading products:', error);
-        showError('Failed to load products. Make sure Spring Boot backend is running on port 8080');
+        showError(`Failed to load products: ${error.message}`);
     } finally {
         showLoading(false);
     }
@@ -114,16 +111,18 @@ async function loadProducts() {
 
 async function loadProductsCount() {
     try {
-        const response = await fetch(PRODUCTS_API);
+        const response = await fetch(`${PRODUCTS_API}/public/all`);
         if (response.ok) {
             const products = await response.json();
             const countElement = document.getElementById('productsCount');
             if (countElement) {
                 countElement.textContent = products.length;
+                showSuccess(`Products count updated: ${products.length} products`);
             }
         }
     } catch (error) {
         console.error('Error loading products count:', error);
+        showError('Failed to load products count');
     }
 }
 
@@ -131,39 +130,39 @@ function displayProducts(products) {
     const container = document.getElementById('productsContainer');
     const noProductsMessage = document.getElementById('noProductsMessage');
 
+    if (!container) return;
+
     if (!products || products.length === 0) {
         container.innerHTML = '';
-        noProductsMessage.style.display = 'block';
+        if (noProductsMessage) noProductsMessage.style.display = 'block';
         return;
     }
 
-    noProductsMessage.style.display = 'none';
+    if (noProductsMessage) noProductsMessage.style.display = 'none';
 
     container.innerHTML = products.map(product => `
-        <div class="col-lg-4 col-md-6">
-            <div class="card product-card fade-in">
-                <div class="product-image">
-                    <i class="fas fa-${getProductIcon(product.category)}"></i>
-                </div>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card product-card h-100">
                 <div class="card-body">
-                    <h5 class="product-title">${escapeHtml(product.name)}</h5>
-                    <p class="card-text text-muted">${escapeHtml(product.description)}</p>
-                    
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span class="product-price">$${product.price ? product.price.toFixed(2) : '0.00'}</span>
-                        <span class="product-category">${escapeHtml(product.category)}</span>
-                    </div>
-                    
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="${product.quantity > 0 ? 'stock-in' : 'stock-out'}">
-                            <i class="fas fa-${product.quantity > 0 ? 'check' : 'times'} me-1"></i>
-                            ${product.quantity > 0 ? `${product.quantity} in stock` : 'Out of stock'}
+                    <h5 class="card-title">${escapeHtml(product.proname || 'No Name')}</h5>
+                    <p class="card-text text-muted">${escapeHtml(product.discription || 'No description')}</p>
+
+                    <div class="mb-3">
+                        <span class="badge bg-primary">${escapeHtml(product.category || 'Uncategorized')}</span>
+                        <span class="badge bg-${product.quantity > 0 ? 'success' : 'danger'} ms-1">
+                            ${product.quantity > 0 ? 'In Stock' : 'Out of Stock'}
                         </span>
-                        <div class="btn-group">
-                            <button class="btn btn-outline-primary btn-sm" onclick="viewProductDetails('${product.id}')">
-                                <i class="fas fa-eye me-1"></i>View
-                            </button>
-                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="h5 text-success">$${product.price ? product.price.toFixed(2) : '0.00'}</span>
+                        <span class="text-muted">Qty: ${product.quantity || 0}</span>
+                    </div>
+
+                    <div class="mt-3">
+                        <button class="btn btn-outline-primary btn-sm w-100" onclick="viewProductDetails('${product.productId}')">
+                            <i class="fas fa-eye me-1"></i>View Details
+                        </button>
                     </div>
                 </div>
             </div>
@@ -171,72 +170,42 @@ function displayProducts(products) {
     `).join('');
 }
 
-function getProductIcon(category) {
-    const icons = {
-        'Electronics': 'laptop',
-        'Clothing': 'tshirt',
-        'Books': 'book',
-        'Home': 'home',
-        'Sports': 'futbol',
-        'Beauty': 'spa',
-        'Toys': 'gamepad',
-        'Other': 'box'
-    };
-    return icons[category] || 'box';
-}
-
 async function viewProductDetails(productId) {
     try {
-        const response = await fetch(`${PRODUCTS_API}/${productId}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
+        const response = await fetch(`${PRODUCTS_API}/public/${productId}`);
 
         if (!response.ok) {
             throw new Error('Product not found');
         }
 
         const product = await response.json();
-        
-        const modalBody = document.getElementById('productModalBody');
-        modalBody.innerHTML = `
-            <div class="row">
-                <div class="col-md-4 text-center">
-                    <div class="product-image mb-3" style="height: 150px; border-radius: 10px;">
-                        <i class="fas fa-${getProductIcon(product.category)} fa-3x"></i>
-                    </div>
-                    <h4 class="text-primary">$${product.price ? product.price.toFixed(2) : '0.00'}</h4>
-                    <span class="badge bg-${product.quantity > 0 ? 'success' : 'danger'} fs-6">
-                        ${product.quantity > 0 ? 'In Stock' : 'Out of Stock'}
-                    </span>
-                </div>
-                <div class="col-md-8">
-                    <h4>${escapeHtml(product.name)}</h4>
-                    <p class="text-muted">${escapeHtml(product.description)}</p>
-                    
-                    <div class="row mt-4">
-                        <div class="col-6">
-                            <strong><i class="fas fa-box me-2 text-warning"></i>Quantity:</strong>
-                            <p class="mb-0">${product.quantity} units</p>
-                        </div>
-                        <div class="col-6">
-                            <strong><i class="fas fa-folder me-2 text-secondary"></i>Category:</strong>
-                            <p class="mb-0">${escapeHtml(product.category)}</p>
-                        </div>
-                    </div>
-                    
-                    <div class="row mt-3">
-                        <div class="col-12">
-                            <strong><i class="fas fa-id-card me-2 text-info"></i>Product ID:</strong>
-                            <p class="mb-0"><small>${product.id}</small></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
 
+        const modalBody = document.getElementById('productModalBody');
+        if (modalBody) {
+            modalBody.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4>${escapeHtml(product.proname)}</h4>
+                        <p class="text-muted">${escapeHtml(product.discription)}</p>
+                        <p><strong>Category:</strong> ${escapeHtml(product.category)}</p>
+                        <p><strong>Price:</strong> $${product.price ? product.price.toFixed(2) : '0.00'}</p>
+                        <p><strong>Quantity:</strong> ${product.quantity}</p>
+                        <p><strong>Review:</strong> ${escapeHtml(product.review || 'No review')}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-box fa-3x text-primary mb-3"></i>
+                                <p><strong>Product ID:</strong></p>
+                                <code>${product.productId}</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Show modal
         const modal = new bootstrap.Modal(document.getElementById('productModal'));
         modal.show();
 
@@ -246,33 +215,13 @@ async function viewProductDetails(productId) {
     }
 }
 
-function searchProducts() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-
-    if (!searchTerm) {
-        displayProducts(allProducts);
-        return;
-    }
-
-    const filteredProducts = allProducts.filter(product =>
-        product.name.toLowerCase().includes(searchTerm) ||
-        product.description.toLowerCase().includes(searchTerm) ||
-        (product.category && product.category.toLowerCase().includes(searchTerm))
-    );
-
-    displayProducts(filteredProducts);
-}
-
 // Add Product Functions
-function setupAddProductForm() {
-    const form = document.getElementById('addProductForm');
-    form.addEventListener('submit', handleAddProduct);
-}
-
 async function handleAddProduct(event) {
     event.preventDefault();
+    console.log('Add product form submitted');
 
     if (!validateForm()) {
+        showError('Please fill all required fields correctly');
         return;
     }
 
@@ -282,12 +231,15 @@ async function handleAddProduct(event) {
     submitBtn.disabled = true;
 
     const productData = {
-        name: document.getElementById('productName').value.trim(),
-        description: document.getElementById('productDescription').value.trim(),
+        proname: document.getElementById('productName').value.trim(),
+        discription: document.getElementById('productDescription').value.trim(),
         price: parseFloat(document.getElementById('productPrice').value),
         quantity: parseInt(document.getElementById('productQuantity').value),
-        category: document.getElementById('productCategory').value
+        category: document.getElementById('productCategory').value,
+        review: document.getElementById('productReview').value.trim() || "No review yet"
     };
+
+    console.log('Sending product data:', productData);
 
     try {
         const response = await fetch(PRODUCTS_API, {
@@ -298,14 +250,18 @@ async function handleAddProduct(event) {
             body: JSON.stringify(productData)
         });
 
+        console.log('Add product response status:', response.status);
+
         if (!response.ok) {
             const errorText = await response.text();
             throw new Error(errorText || `HTTP error! status: ${response.status}`);
         }
 
         const newProduct = await response.json();
-        showSuccess(`Product "${newProduct.name}" added successfully! Redirecting...`);
-        clearForm();
+        console.log('Product added successfully:', newProduct);
+
+        showSuccess(`Product "${newProduct.proname}" added successfully!`);
+        document.getElementById('addProductForm').reset();
 
         // Redirect to products page after 2 seconds
         setTimeout(() => {
@@ -323,11 +279,11 @@ async function handleAddProduct(event) {
 
 function validateForm() {
     const form = document.getElementById('addProductForm');
-    const inputs = form.querySelectorAll('input, select, textarea');
+    const inputs = form.querySelectorAll('input[required], select[required], textarea[required]');
     let isValid = true;
 
     inputs.forEach(input => {
-        if (!input.checkValidity()) {
+        if (!input.value.trim()) {
             input.classList.add('is-invalid');
             isValid = false;
         } else {
@@ -338,63 +294,9 @@ function validateForm() {
     return isValid;
 }
 
-function clearForm() {
-    document.getElementById('addProductForm').reset();
-    const inputs = document.querySelectorAll('.is-invalid');
-    inputs.forEach(input => input.classList.remove('is-invalid'));
-    hideMessages();
-}
-
-// Utility Functions
-function showLoading(show) {
-    const loadingSpinner = document.getElementById('loadingSpinner');
-    if (loadingSpinner) {
-        loadingSpinner.style.display = show ? 'block' : 'none';
-    }
-}
-
-function showSuccess(message) {
-    hideMessages();
-    const successMessage = document.getElementById('successMessage');
-    const successText = document.getElementById('successText');
-    if (successMessage && successText) {
-        successText.textContent = message;
-        successMessage.style.display = 'block';
-    }
-}
-
-function showError(message) {
-    hideMessages();
-    const errorMessage = document.getElementById('errorMessage');
-    const errorText = document.getElementById('errorText');
-
-    if (errorMessage && errorText) {
-        errorText.textContent = message;
-        errorMessage.style.display = 'block';
-    }
-}
-
-function hideMessages() {
-    const successMessage = document.getElementById('successMessage');
-    const errorMessage = document.getElementById('errorMessage');
-
-    if (successMessage) successMessage.style.display = 'none';
-    if (errorMessage) errorMessage.style.display = 'none';
-}
-
-function escapeHtml(unsafe) {
-    if (!unsafe) return '';
-    return unsafe
-        .toString()
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
 // Make functions globally available
 window.loadProducts = loadProducts;
-window.searchProducts = searchProducts;
+window.loadProductsCount = loadProductsCount;
 window.viewProductDetails = viewProductDetails;
-window.clearForm = clearForm;
+window.handleAddProduct = handleAddProduct;
+window.testBackendConnection = testBackendConnection;
